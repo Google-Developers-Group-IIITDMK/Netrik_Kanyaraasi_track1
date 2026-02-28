@@ -1,15 +1,36 @@
 from hr_agent import HRAgent
 from data_loader import load_candidates, create_job_from_dataset
-import pandas as pd
 
-agent = HRAgent()
+def main():
+    agent = HRAgent()
 
-resume_path = "data/resume_dataset_1200.csv"
-df = pd.read_csv(resume_path)
+    # Path to resume dataset
+    resume_path = "data/resume_dataset_1200.csv"
 
-candidates = load_candidates(resume_path)
-jd = create_job_from_dataset(df)
+    # Load candidates
+    candidates = load_candidates(resume_path)
 
-ranked = agent.screen_resumes(candidates, jd)
+    # Create job description from dataset
+    jd = create_job_from_dataset(resume_path)
 
-print(agent.export_results())
+    # Screen and rank candidates
+    ranked = agent.screen_resumes(candidates, jd)
+
+    # Print top 5 ranked candidates
+    print("\nTop 5 Ranked Candidates:\n")
+    for c in ranked[:5]:
+        print(f"Name: {c.name}, Score: {c.match_score}, Status: {c.status}")
+
+    shortlisted = agent.shortlist_top_n(5)
+
+    print("\nShortlisted Candidates:\n")
+    for c in shortlisted:
+        print(f"{c.name} - {c.match_score}")
+    
+    # Print full JSON export
+    print("\nFinal Export JSON:\n")
+    print(agent.export_results())
+
+
+if __name__ == "__main__":
+    main()
