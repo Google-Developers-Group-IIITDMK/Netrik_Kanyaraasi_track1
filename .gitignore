@@ -1,3 +1,4 @@
+
 # Python
 __pycache__/
 *.py[cod]
@@ -67,3 +68,5 @@ htmlcov/
 
 # Kiro workspace files (optional - keep for now)
 # .kiro/
+
+
