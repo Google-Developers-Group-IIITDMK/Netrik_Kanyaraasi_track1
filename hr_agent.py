@@ -107,7 +107,6 @@ class ResumeScreener(ABC):
 # =====================================================
 # SMART RANKING ENGINE
 # =====================================================
-
 class SmartResumeScreener(ResumeScreener):
 
     def rank_candidates(self, candidates: List[Candidate], jd: JobDescription) -> List[Candidate]:
@@ -119,18 +118,19 @@ class SmartResumeScreener(ResumeScreener):
 
             candidate_skills = {s.lower().strip() for s in c.skills}
 
-            # Required skill score (60%)
+            # Required skill analysis
             matched_required = required & candidate_skills
+            missing_required = required - candidate_skills
             skill_score = len(matched_required) / len(required) if required else 0
 
-            # Preferred skill bonus (10%)
+            # Preferred skill bonus
             matched_preferred = preferred & candidate_skills
             preferred_score = len(matched_preferred) / len(preferred) if preferred else 0
 
-            # Experience score (20%)
+            # Experience score
             exp_score = min(c.experience_years / jd.min_experience, 1.0) if jd.min_experience else 1
 
-            # Resume quality score (10%)
+            # Resume quality score
             word_count = len(c.resume_text.split())
             quality_score = min(word_count / 200, 1.0)
 
@@ -143,15 +143,14 @@ class SmartResumeScreener(ResumeScreener):
 
             c.match_score = round(final_score, 4)
 
-            # Explainability
+            readiness = round(skill_score * 100, 2)
+
             c.explanation = {
                 "matched_required_skills": list(matched_required),
+                "missing_required_skills": list(missing_required),
                 "matched_preferred_skills": list(matched_preferred),
                 "experience_years": c.experience_years,
-                "skill_score_component": round(0.6 * skill_score, 4),
-                "preferred_score_component": round(0.1 * preferred_score, 4),
-                "experience_score_component": round(0.2 * exp_score, 4),
-                "quality_score_component": round(0.1 * quality_score, 4),
+                "readiness_percentage": readiness,
                 "final_score": c.match_score
             }
 
@@ -245,7 +244,7 @@ class HRAgent:
             self.pipeline[c.candidate_id] = c
 
         return ranked
-        
+
     def shortlist_top_n(self, n: int):
     sorted_candidates = sorted(
         self.pipeline.values(),
