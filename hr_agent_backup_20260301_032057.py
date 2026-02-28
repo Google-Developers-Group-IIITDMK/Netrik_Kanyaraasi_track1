@@ -768,7 +768,7 @@ class HRAgent:
             "provider": "gemini_only",
             "llm_enabled": self.use_llm,
             "llm_available": LLM_AVAILABLE,
-            "model": "gemini-2.5-flash" if self.use_llm else "template",
+            "model": "gemini-1.5-flash" if self.use_llm else "template",
             "features": {
                 "semantic_matching": self.use_llm,
                 "llm_question_generation": self.use_llm,

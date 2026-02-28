@@ -5,3 +5,7 @@ python-dotenv
 pandas
 openpyxl
 streamlit
+openai>=1.0.0
+# google-generativeai  # Deprecated - commented out
+# google-genai  # New library - may have issues
+jsonschema
