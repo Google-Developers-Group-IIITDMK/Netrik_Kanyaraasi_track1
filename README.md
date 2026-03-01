@@ -99,4 +99,3 @@ GEMINI_API_KEY=your_api_key_here
 
 ---
 
-**Built for AWS Hackathon - Track 2: AI HR Agent**
