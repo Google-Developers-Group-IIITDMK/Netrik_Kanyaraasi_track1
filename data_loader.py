@@ -1,5 +1,13 @@
 import pandas as pd
-from hr_agent import Candidate, JobDescription
+
+# Try to import from AI-native version first, fallback to base
+try:
+    from hr_agent_ai_native import Candidate, JobDescription
+except ImportError:
+    try:
+        from hr_agent_upgraded import Candidate, JobDescription
+    except ImportError:
+        from hr_agent import Candidate, JobDescription
 
 
 # -----------------------------------------------------
