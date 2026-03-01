@@ -5,12 +5,10 @@
 **Team Name:** Kanyaraasi
 
 **Team Members:**
-- [Team Member 1 Name]
-- [Team Member 2 Name]
-- [Team Member 3 Name]
-- [Team Member 4 Name]
-
-**College Name:** Indian Institute of Information Technology, Design and Manufacturing, Kancheepuram (IIITDM Kancheepuram)
+- Geya Sahithya Kolli - IIITDM Kurnool
+- Nehaa Jakkampudi - CBIT
+- Konjety Nandini Sreenivas - SRM Kattankulathur,Chennai
+- Charvi Sri Dadi - IIT Kharagpur
 
 **Track:** Track 2 - AI HR Agent
 
