@@ -627,17 +627,21 @@ else:
         
         st.info("Test intelligent query categorization and escalation")
         
-        # Sample queries
+        # Initialize session state for query
+        if 'current_query' not in st.session_state:
+            st.session_state.current_query = "Employee filed harassment complaint against manager"
+        
+        # Sample queries - diverse test cases
         sample_queries = [
-            "Candidate is asking about salary range for senior position",
-            "Need to schedule interview for tomorrow",
-            "Question about company culture and work-life balance",
-            "Urgent: Candidate has competing offer, needs decision today",
-            "Can you tell me about the tech stack?",
-            "CEO wants to interview this candidate personally"
+            "Employee filed harassment complaint against manager",  # HIGH - sensitive keyword
+            "Candidate negotiating $180,000 salary for VP role",  # MEDIUM - salary threshold
+            "What are the benefits and vacation days?",  # LOW - routine question
+            "Legal team contacted us about discrimination lawsuit",  # HIGH - legal keyword
+            "Need to schedule interview for senior developer position",  # LOW - standard request
+            "Employee requesting 3 weeks unpaid leave for personal reasons"  # LOW - routine
         ]
         
-        query_input = st.text_area("Enter Query", sample_queries[0], height=100)
+        query_input = st.text_area("Enter Query", st.session_state.current_query, height=100)
         
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -645,38 +649,49 @@ else:
                 with st.spinner("Analyzing query..."):
                     decision = agent.escalate_query(query_input)
                     
-                    priority_colors = {
+                    severity_colors = {
                         "high": "🔴",
                         "medium": "🟡",
                         "low": "🟢"
                     }
                     
-                    st.markdown(f"### {priority_colors[decision['priority']]} Priority: {decision['priority'].upper()}")
-                    st.markdown(f"**Reasoning:** {decision['reasoning']}")
-                    st.markdown(f"**Recommended Action:** {decision['action']}")
+                    severity = decision.get('severity', 'low')
+                    st.markdown(f"### {severity_colors[severity]} Severity: {severity.upper()}")
+                    st.markdown(f"**Reason:** {decision.get('reason', 'N/A')}")
+                    st.markdown(f"**Urgency:** {decision.get('urgency', 'routine')}")
+                    st.markdown(f"**Recommended Action:** {decision.get('recommended_action', 'N/A')}")
+                    st.markdown(f"**Suggested Handler:** {decision.get('suggested_handler', 'ai')}")
+                    st.markdown(f"**Confidence:** {decision.get('confidence', 0.85):.0%}")
                     
-                    if decision['priority'] == 'high':
-                        st.error("⚠️ HIGH PRIORITY - Immediate attention required")
-                    elif decision['priority'] == 'medium':
-                        st.warning("⚡ MEDIUM PRIORITY - Handle within 24 hours")
+                    if severity == 'high':
+                        st.error("⚠️ HIGH SEVERITY - Immediate attention required")
+                    elif severity == 'medium':
+                        st.warning("⚡ MEDIUM SEVERITY - Handle within 24 hours")
                     else:
-                        st.success("✅ LOW PRIORITY - Standard processing")
+                        st.success("✅ LOW SEVERITY - Standard processing")
         
         with col2:
             st.markdown("### Quick Tests")
-            for i, sample in enumerate(sample_queries[:3], 1):
-                if st.button(f"Test #{i}", key=f"sample_{i}"):
-                    st.session_state.test_query = sample
+            test_labels = [
+                "🔴 High (Harassment)",
+                "🟡 Medium (Salary)",
+                "🟢 Low (Benefits)"
+            ]
+            for i, (sample, label) in enumerate(zip(sample_queries[:3], test_labels)):
+                if st.button(label, key=f"sample_{i}", use_container_width=True):
+                    st.session_state.current_query = sample
+                    st.rerun()
         
         # Show escalation history
         st.markdown("### 📜 Escalation History")
         if hasattr(agent, 'escalation_decisions') and agent.escalation_decisions:
             esc_data = []
             for esc in agent.escalation_decisions[-5:]:
+                decision = esc.get('decision', {})
                 esc_data.append({
-                    "Query": esc['query'][:50] + "...",
-                    "Priority": esc['decision']['priority'].upper(),
-                    "Action": esc['decision']['action'][:40] + "..."
+                    "Query": esc.get('query', 'N/A')[:50] + "...",
+                    "Severity": decision.get('severity', 'N/A').upper(),
+                    "Action": decision.get('recommended_action', 'N/A')[:40] + "..."
                 })
             st.dataframe(pd.DataFrame(esc_data), use_container_width=True, hide_index=True)
         else:

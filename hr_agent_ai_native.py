@@ -279,8 +279,6 @@ class AINativeHRAgent(UpgradedHRAgent):
         self.executive_summary = None
         self.cross_candidate_insights = None
         self.predictive_recommendations = None
-        logger.info(f"✅ AI-Native HR Agent initialized (fast_mode={fast_mode}, llm={use_llm and not fast_mode})")
-        self.predictive_recommendations = None
         logger.info(f"✅ AI-Native HR Agent initialized (fast_mode={fast_mode})")
     
     def screen_resumes(self, candidates: List[Candidate], jd: JobDescription):
