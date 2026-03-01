@@ -10,7 +10,7 @@
 - Konjety Nandini Sreenivas - SRM Kattankulathur,Chennai
 - Charvi Sri Dadi - IIT Kharagpur
 
-**Track:** Track 2 - AI HR Agent
+**Track:** Track 1 - AI HR Agent
 
 ## 📝 Project Description
 
