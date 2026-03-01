@@ -36,6 +36,17 @@ hr_agent_ai_native.py         # AI-Native HR Agent with executive insights
 hr_agent_upgraded.py          # Base upgraded agent (6 core modules)
 gemini_llm_manager_upgraded.py # LLM manager with template fallback
 data_loader.py                # Data loading utilities
+test_ai_native.py             # Test suite
+
+data/
+  resume_dataset_1200.csv       # Resume dataset
+  employee leave tracking data.xlsx # Leave tracking data
+
+docs/
+  AI_NATIVE_QUICKSTART.md       # Quick start guide
+  HACKATHON_IMPLEMENTATION_SUMMARY.md # Implementation details
+  HACKATHON_EVALUATION.md       # Evaluation criteria
+  SUBMISSION_CHECKLIST.md       # Submission checklist
 ```
 
 ## 🎯 Performance
@@ -58,9 +69,10 @@ python test_ai_native.py
 
 ## 📄 Documentation
 
-- `AI_NATIVE_QUICKSTART.md` - Quick start guide
-- `HACKATHON_IMPLEMENTATION_SUMMARY.md` - Implementation details
-- `HACKATHON_EVALUATION.md` - Evaluation criteria
+- `docs/AI_NATIVE_QUICKSTART.md` - Quick start guide
+- `docs/HACKATHON_IMPLEMENTATION_SUMMARY.md` - Implementation details
+- `docs/HACKATHON_EVALUATION.md` - Evaluation criteria
+- `docs/SUBMISSION_CHECKLIST.md` - Submission checklist
 
 ## 🔑 Configuration
 

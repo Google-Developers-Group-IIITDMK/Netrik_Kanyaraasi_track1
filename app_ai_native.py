@@ -80,7 +80,10 @@ with st.sidebar:
     st.header("⚙️ Configuration")
     use_llm = st.checkbox("Enable AI (Gemini)", value=True)
     fast_mode = st.checkbox("Fast Mode (Rule-based)", value=True, help="Use rule-based logic for speed. Uncheck for full LLM analysis (slower)")
-    num_candidates = st.slider("Candidates to analyze", 50, 1200, 100, 50)
+    
+    st.markdown("---")
+    st.markdown("### 📊 Dataset")
+    st.info("Processing all 1200 candidates from the dataset")
     
     st.markdown("---")
     st.markdown("### 🎯 AI Features")
@@ -105,22 +108,32 @@ st.header("🚀 AI-Powered Hiring Workflow")
 
 if st.button("▶️ Run AI Analysis", type="primary"):
     
-    # Initialize
-    with st.spinner("Initializing AI-Native HR Agent..."):
-        agent = HRAgent(use_llm=use_llm, fast_mode=fast_mode)
-        st.session_state.agent = agent
-        time.sleep(0.5)
-    
-    st.success("✅ Agent initialized")
-    
-    # Load data
-    with st.spinner(f"Loading {num_candidates} candidates..."):
-        candidates = load_candidates("data/resume_dataset_1200.csv")[:num_candidates]
+    # Load data first
+    with st.spinner("Loading all 1200 candidates..."):
+        candidates = load_candidates("data/resume_dataset_1200.csv")
         jd = create_job_from_dataset("data/resume_dataset_1200.csv")
         st.session_state.jd = jd
         time.sleep(0.3)
     
     st.success(f"✅ Loaded {len(candidates)} candidates")
+    
+    # Initialize leave balances for all candidates
+    employee_balances = {}
+    for candidate in candidates:
+        employee_balances[candidate.candidate_id] = {
+            "annual": 20,
+            "sick": 10,
+            "personal": 5,
+            "unpaid": 30
+        }
+    
+    # Initialize agent with employee balances
+    with st.spinner("Initializing AI-Native HR Agent..."):
+        agent = HRAgent(use_llm=use_llm, fast_mode=fast_mode, employee_balances=employee_balances)
+        st.session_state.agent = agent
+        time.sleep(0.5)
+    
+    st.success("✅ Agent initialized with leave balances")
     
     # Screen with AI insights
     with st.spinner("🤖 AI is analyzing candidates..."):
@@ -538,50 +551,68 @@ else:
         
         st.info("Test leave policy enforcement with sample requests")
         
-        # Sample leave request form
-        col1, col2 = st.columns(2)
-        with col1:
-            emp_id = st.text_input("Employee ID", "EMP_001")
-            leave_type = st.selectbox("Leave Type", ["annual", "sick", "personal", "unpaid"])
-            start_date = st.date_input("Start Date", datetime.now() + timedelta(days=7))
-        
-        with col2:
-            reason = st.text_area("Reason", "Personal matters")
-            end_date = st.date_input("End Date", datetime.now() + timedelta(days=10))
-        
-        if st.button("📝 Submit Leave Request"):
-            leave_request = LeaveRequest(
-                request_id=f"LR_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                employee_id=emp_id,
-                leave_type=leave_type,
-                start_date=datetime.combine(start_date, datetime.min.time()),
-                end_date=datetime.combine(end_date, datetime.min.time()),
-                reason=reason
-            )
+        # Get unique employee names from ranked candidates
+        if ranked and len(ranked) > 0:
+            # Create a mapping of display names to employee IDs
+            employee_options = {}
+            for candidate in ranked:
+                # Create unique display name (name + ID to handle duplicates)
+                display_name = f"{candidate.name} (ID: {candidate.candidate_id})"
+                employee_options[display_name] = candidate.candidate_id
             
-            with st.spinner("Processing leave request..."):
-                decision = agent.process_leave(leave_request)
+            # Sample leave request form
+            col1, col2 = st.columns(2)
+            with col1:
+                # Dropdown for employee selection
+                selected_employee = st.selectbox(
+                    "Select Employee", 
+                    options=list(employee_options.keys()),
+                    help="Select an employee from the analyzed candidates"
+                )
+                emp_id = employee_options[selected_employee]
                 
-                if decision.get('status') == 'approved':
-                    st.success(f"✅ Leave Approved: {decision.get('reason', 'Request approved')}")
-                    st.info(f"Days Requested: {decision.get('days_requested', 0)}")
-                    st.info(f"Remaining Balance: {decision.get('remaining_balance', 0)}")
-                else:
-                    st.error(f"❌ Leave Denied: {decision.get('reason', 'Request denied')}")
-                    st.info(f"Days Requested: {decision.get('days_requested', 0)}")
-                    st.info(f"Current Balance: {decision.get('remaining_balance', 0)}")
+                leave_type = st.selectbox("Leave Type", ["annual", "sick", "personal", "unpaid"])
+                start_date = st.date_input("Start Date", datetime.now() + timedelta(days=7))
+            
+            with col2:
+                reason = st.text_area("Reason", "Personal matters")
+                end_date = st.date_input("End Date", datetime.now() + timedelta(days=10))
+            
+            if st.button("📝 Submit Leave Request"):
+                leave_request = LeaveRequest(
+                    request_id=f"LR_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                    employee_id=emp_id,
+                    leave_type=leave_type,
+                    start_date=datetime.combine(start_date, datetime.min.time()),
+                    end_date=datetime.combine(end_date, datetime.min.time()),
+                    reason=reason
+                )
                 
-                st.json(decision)
+                with st.spinner("Processing leave request..."):
+                    decision = agent.process_leave(leave_request)
+                    
+                    if decision.get('status') == 'approved':
+                        st.success(f"✅ Leave Approved: {decision.get('reason', 'Request approved')}")
+                        st.info(f"Days Requested: {decision.get('days_requested', 0)}")
+                        st.info(f"Remaining Balance: {decision.get('remaining_balance', 0)}")
+                    else:
+                        st.error(f"❌ Leave Denied: {decision.get('reason', 'Request denied')}")
+                        st.info(f"Days Requested: {decision.get('days_requested', 0)}")
+                        st.info(f"Current Balance: {decision.get('remaining_balance', 0)}")
+                    
+                    st.json(decision)
+        else:
+            st.warning("⚠️ No employees available. Please run the AI Analysis first to load employee data.")
         
         # Show leave policies
         with st.expander("📋 Leave Policies"):
-            if hasattr(agent, 'leave_policies') and agent.leave_policies:
+            if hasattr(agent, 'leave_manager') and hasattr(agent.leave_manager, 'policies') and agent.leave_manager.policies:
                 policies_data = []
-                for policy_type, policy in agent.leave_policies.items():
+                for policy_type, policy in agent.leave_manager.policies.items():
                     policies_data.append({
                         "Type": policy_type.title(),
                         "Annual Quota": policy.annual_quota,
-                        "Max Consecutive": policy.max_consecutive_days,
+                        "Max Consecutive Days": policy.max_consecutive_days,
                         "Min Notice (days)": policy.min_notice_days
                     })
                 st.dataframe(pd.DataFrame(policies_data), use_container_width=True, hide_index=True)
