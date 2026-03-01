@@ -42,8 +42,14 @@ def create_job_from_dataset(path: str):
     for skills in df["Skills"].dropna():
         all_skills.extend([s.strip() for s in str(skills).split(",") if s.strip()])
 
-    # Take top 10 unique skills
-    required_skills = list(set(all_skills))[:10]
+    # Take top 10 most common skills (deterministic)
+    from collections import Counter
+    skill_counts = Counter(all_skills)
+    # Sort by frequency (descending), then alphabetically for ties
+    required_skills = [skill for skill, count in sorted(
+        skill_counts.items(), 
+        key=lambda x: (-x[1], x[0])  # -count for descending, skill name for alphabetical
+    )][:10]
 
     jd = JobDescription(
         job_id="JD_001",

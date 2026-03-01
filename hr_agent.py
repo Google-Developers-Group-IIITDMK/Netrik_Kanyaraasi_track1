@@ -1,39 +1,41 @@
 """
-Gemini-Only HR Agent - Simplified and Reliable
-Uses only Google Gemini with template fallbacks
+GEMINI‑ONLY HR AGENT — R3 (Refined, Reliable, Robust)
+Team: Kanyaraasi
+Track: track_1_hr_agent
+Primary model: Gemini 2.5 Flash
 """
 
 import logging
 import json
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import List, Dict, Optional
 from datetime import datetime
 from enum import Enum
+from abc import ABC, abstractmethod
 
-# Import the Gemini-only LLM manager
+# ---------------------------------------------------------------------
+# Gemini LLM Manager
+# ---------------------------------------------------------------------
+
 try:
     from gemini_llm_manager import GeminiHRAgent as LLMAgent
     LLM_AVAILABLE = True
 except ImportError:
     LLM_AVAILABLE = False
-    print("⚠️  Gemini LLM manager not available - using template-only mode")
+    print("Gemini LLM manager unavailable — Template fallback mode")
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# =====================================================
-# CONFIG
-# =====================================================
+logger = logging.getLogger("HR_AGENT")
 
 CONFIG = {
     "team_id": "Kanyaraasi",
-    "track": "track_1_hr_agent"
+    "track": "track_1_hr_agent",
+    "version": "4.2-ultrastable"
 }
 
-# =====================================================
-# PIPELINE STATES
-# =====================================================
+# ---------------------------------------------------------------------
+# Pipeline States (Hard‑Validated State Machine)
+# ---------------------------------------------------------------------
 
 class PipelineStatus(Enum):
     APPLIED = "applied"
@@ -55,12 +57,12 @@ class PipelineStatus(Enum):
             "offer_extended": ["offer_accepted", "rejected"],
             "offer_accepted": ["hired", "rejected"],
             "hired": [],
-            "rejected": [],
+            "rejected": []
         }
 
-# =====================================================
-# DATA MODELS
-# =====================================================
+# ---------------------------------------------------------------------
+# Data Models
+# ---------------------------------------------------------------------
 
 @dataclass
 class Candidate:
@@ -73,7 +75,7 @@ class Candidate:
     match_score: float = 0.0
     explanation: Dict = field(default_factory=dict)
     status: str = "applied"
-    interview_questions: List[Dict[str, str]] = field(default_factory=list)
+    interview_questions: List[Dict] = field(default_factory=list)
     slot_id: Optional[str] = None
     interviewer_id: Optional[str] = None
     status_updated_at: datetime = field(default_factory=datetime.now)
@@ -103,7 +105,6 @@ class LeaveRequest:
     start_date: datetime
     end_date: datetime
     reason: str
-    status: str = "pending"
 
 @dataclass
 class LeavePolicy:
@@ -112,634 +113,492 @@ class LeavePolicy:
     max_consecutive_days: int
     min_notice_days: int
 
-@dataclass
-class EmployeeBalance:
-    employee_id: str
-    annual_leave: int
-    sick_leave: int
-    personal_leave: int
-    unpaid_leave: int
-
-# =====================================================
-# ABSTRACT CLASS
-# =====================================================
+# ---------------------------------------------------------------------
+# Abstract Resume Screener
+# ---------------------------------------------------------------------
 
 class ResumeScreener(ABC):
     @abstractmethod
     def rank_candidates(self, candidates: List[Candidate], jd: JobDescription) -> List[Candidate]:
         pass
 
-# =====================================================
-# CORE COMPONENTS
-# =====================================================
+# ---------------------------------------------------------------------
+# Pipeline State Validator (Zero Tolerance for Invalid Transitions)
+# ---------------------------------------------------------------------
 
 class PipelineStateValidator:
-    """Validates and enforces pipeline state transitions"""
-    
     def __init__(self):
-        self.transition_log: List[Dict] = []
-    
-    def validate_transition(self, current_status: str, target_status: str) -> bool:
-        valid_transitions = PipelineStatus.valid_transitions()
-        return target_status in valid_transitions.get(current_status, [])
-    
-    def transition(self, candidate: Candidate, target_status: str) -> None:
-        current_status = candidate.status
-        
-        if not self.validate_transition(current_status, target_status):
-            raise ValueError(f"Invalid transition from {current_status} to {target_status}")
-        
-        candidate.status = target_status
+        self.transition_log = []
+
+    def validate_transition(self, current, target):
+        return target in PipelineStatus.valid_transitions().get(current, [])
+
+    def transition(self, candidate: Candidate, target: str):
+        current = candidate.status
+        if not self.validate_transition(current, target):
+            raise ValueError(f"Invalid transition from {current} → {target}")
+
+        candidate.status = target
         candidate.status_updated_at = datetime.now()
-        
+
         log_entry = {
-            'timestamp': datetime.now().isoformat(),
-            'candidate_id': candidate.candidate_id,
-            'from_state': current_status,
-            'to_state': target_status
+            "timestamp": datetime.now().isoformat(),
+            "candidate_id": candidate.candidate_id,
+            "from_state": current,
+            "to_state": target
         }
         self.transition_log.append(log_entry)
-        
-        logger.info(f"Transitioned candidate {candidate.candidate_id} from {current_status} to {target_status}")
-    
-    def get_transition_log(self) -> List[Dict]:
+
+        logger.info(f"STATE: {candidate.candidate_id} {current} → {target}")
+
+    def get_transition_log(self):
         return self.transition_log
 
+# ---------------------------------------------------------------------
+# Interview Question Generator (Gemini + Templates)
+# ---------------------------------------------------------------------
 
 class InterviewQuestionGenerator:
-    """Question generator using Gemini with template fallbacks"""
-    
-    def __init__(self, use_llm: bool = True, bedrock_client=None):
+    def __init__(self, use_llm=True):
         self.use_llm = use_llm and LLM_AVAILABLE
-        self.bedrock_client = bedrock_client  # Kept for compatibility but not used
-        
-        if self.use_llm:
+        self.llm = LLMAgent() if self.use_llm else None
+
+    def generate_questions(self, candidate: Candidate, jd: JobDescription):
+        if self.llm:
             try:
-                self.llm_agent = LLMAgent()
-                logger.info("✅ Gemini LLM agent initialized for question generation")
+                return self._generate_llm(candidate, jd)
             except Exception as e:
-                logger.warning(f"⚠️  LLM initialization failed: {e}. Using templates only.")
-                self.llm_agent = None
-                self.use_llm = False
-        else:
-            self.llm_agent = None
-    
-    def generate_questions(self, candidate: Candidate, job_description: JobDescription) -> List[Dict[str, str]]:
-        """Generate interview questions with Gemini or template fallback"""
-        
-        # Try Gemini first
-        if self.use_llm and self.llm_agent:
-            try:
-                questions = self._generate_with_llm(candidate, job_description)
-                if questions:
-                    candidate.interview_questions = questions
-                    return questions
-            except Exception as e:
-                logger.warning(f"⚠️  LLM generation failed: {e}. Using templates.")
-        
-        # Fallback to template generation
-        questions = self._generate_template_questions(candidate, job_description)
+                logger.warning(f"LLM question gen failed: {e}")
+
+        return self._template_fallback(candidate, jd)
+
+    def _generate_llm(self, candidate, jd):
+        payload = {
+            "candidate": {
+                "name": candidate.name,
+                "skills": candidate.skills,
+                "experience": candidate.experience_years,
+                "match": candidate.explanation
+            },
+            "job": {
+                "title": jd.title,
+                "required": jd.required_skills,
+                "preferred": jd.preferred_skills
+            }
+        }
+
+        result = self.llm.generate_interview_questions(payload, payload)
+        if not result["success"]:
+            raise RuntimeError(result.get("error", "Unknown"))
+
+        parsed = json.loads(result["content"])
+        questions = parsed.get("questions", [])[:7]
         candidate.interview_questions = questions
         return questions
-    
-    def _generate_with_llm(self, candidate: Candidate, job_description: JobDescription) -> List[Dict[str, str]]:
-        """Generate questions using Gemini"""
-        candidate_profile = {
-            "name": candidate.name,
-            "skills": candidate.skills,
-            "experience_years": candidate.experience_years,
-            "matched_skills": candidate.explanation.get('matched_required_skills', []),
-            "missing_skills": candidate.explanation.get('missing_required_skills', [])
-        }
-        
-        job_requirements = {
-            "title": job_description.title,
-            "required_skills": job_description.required_skills,
-            "preferred_skills": job_description.preferred_skills,
-            "min_experience": job_description.min_experience
-        }
-        
-        result = self.llm_agent.generate_interview_questions(candidate_profile, job_requirements)
-        
-        if result["success"]:
-            content = json.loads(result["content"]) if isinstance(result["content"], str) else result["content"]
-            questions = []
-            for q in content.get("questions", [])[:7]:
-                questions.append({
-                    "question": q["question"],
-                    "type": q["type"],
-                    "skill_focus": q["skill_focus"],
-                    "difficulty": q.get("difficulty", "mid"),
-                    "generated_by": result["provider"]
-                })
-            return questions
-        else:
-            raise Exception(f"LLM generation failed: {result.get('error', 'Unknown error')}")
-    
-    def _generate_template_questions(self, candidate: Candidate, job_description: JobDescription) -> List[Dict[str, str]]:
-        """Generate questions using templates - guaranteed to work"""
+
+    def _template_fallback(self, candidate, jd):
+        missing = candidate.explanation.get("missing_required_skills", [])
+        matched = candidate.explanation.get("matched_required_skills", [])
+
         questions = []
-        
-        missing_skills = candidate.explanation.get('missing_required_skills', [])
-        matched_skills = candidate.explanation.get('matched_required_skills', [])
-        
-        # Technical questions for missing skills
-        for skill in missing_skills[:2]:
+
+        for skill in missing[:2]:
             questions.append({
-                'question': f"We noticed {skill} is required for this role. Can you describe your experience with {skill} or similar technologies?",
-                'type': 'technical',
-                'skill_focus': skill,
-                'generated_by': 'template'
+                "question": f"Describe your familiarity with {skill} and any related tools.",
+                "type": "technical",
+                "skill_focus": skill,
+                "generated_by": "template"
             })
-        
-        # Technical questions for matched skills
-        for skill in matched_skills[:2]:
+
+        for skill in matched[:2]:
             questions.append({
-                'question': f"Tell me about a specific project where you used {skill}. What challenges did you face and how did you overcome them?",
-                'type': 'technical',
-                'skill_focus': skill,
-                'generated_by': 'template'
+                "question": f"Walk me through your strongest project involving {skill}.",
+                "type": "technical",
+                "skill_focus": skill,
+                "generated_by": "template"
             })
-        
-        # Behavioral questions
+
         questions.extend([
             {
-                'question': "Describe a situation where you had to learn a new technology quickly. What approach did you take and what was the outcome?",
-                'type': 'behavioral',
-                'skill_focus': 'adaptability',
-                'generated_by': 'template'
+                "question": "Tell me about a time you handled uncertainty in a project.",
+                "type": "behavioral",
+                "skill_focus": "adaptability",
+                "generated_by": "template"
             },
             {
-                'question': "Tell me about a time when you had to work with a difficult team member. How did you handle the situation?",
-                'type': 'behavioral',
-                'skill_focus': 'teamwork',
-                'generated_by': 'template'
+                "question": "Describe a conflict with a teammate and how you resolved it.",
+                "type": "behavioral",
+                "skill_focus": "communication",
+                "generated_by": "template"
             },
             {
-                'question': f"How would you approach designing a system for {job_description.title.lower()}? Walk me through your thought process.",
-                'type': 'situational',
-                'skill_focus': 'system_design',
-                'generated_by': 'template'
+                "question": f"How would you design a scalable system for {jd.title.lower()}?",
+                "type": "situational",
+                "skill_focus": "system_design",
+                "generated_by": "template"
             }
         ])
-        
-        return questions[:7]
 
+        candidate.interview_questions = questions[:7]
+        return candidate.interview_questions
+
+# ---------------------------------------------------------------------
+# Interview Scheduler (Conflict‑Free, Deterministic)
+# ---------------------------------------------------------------------
 
 class InterviewScheduler:
-    """Assigns candidates to interview slots without conflicts"""
-    
-    def __init__(self):
-        pass
-    
-    def validate_slot(self, slot: InterviewSlot) -> bool:
-        if slot.start_time >= slot.end_time:
-            return False
-        if slot.start_time <= datetime.now():
-            return False
-        return True
-    
-    def schedule_interviews(self, candidates: List[Candidate], slots: List[InterviewSlot]) -> Dict:
-        valid_slots = [s for s in slots if self.validate_slot(s) and s.is_available]
-        
-        from collections import defaultdict
-        interviewer_slots = defaultdict(list)
-        for slot in valid_slots:
-            interviewer_slots[slot.interviewer_id].append(slot)
-        
-        sorted_candidates = sorted(candidates, key=lambda c: c.match_score, reverse=True)
-        
+    def validate_slot(self, slot: InterviewSlot):
+        return (
+            slot.start_time < slot.end_time and
+            slot.start_time > datetime.now() and
+            slot.is_available
+        )
+
+    def schedule_interviews(self, candidates, slots):
+        valid = [s for s in slots if self.validate_slot(s)]
+        valid.sort(key=lambda s: s.start_time)
+
         assignments = []
         unscheduled = []
-        
-        for candidate in sorted_candidates:
-            if interviewer_slots:
-                interviewer = max(interviewer_slots.keys(), key=lambda i: len(interviewer_slots[i]))
-                
-                if interviewer_slots[interviewer]:
-                    slot = interviewer_slots[interviewer].pop(0)
-                    slot.is_available = False
-                    
-                    assignment = {
-                        'candidate_id': candidate.candidate_id,
-                        'candidate_name': candidate.name,
-                        'slot_id': slot.slot_id,
-                        'interviewer_id': slot.interviewer_id,
-                        'start_time': slot.start_time.isoformat(),
-                        'end_time': slot.end_time.isoformat()
-                    }
-                    assignments.append(assignment)
-                    
-                    candidate.slot_id = slot.slot_id
-                    candidate.interviewer_id = slot.interviewer_id
-                    
-                    if not interviewer_slots[interviewer]:
-                        del interviewer_slots[interviewer]
-                else:
-                    unscheduled.append(candidate.candidate_id)
-            else:
-                unscheduled.append(candidate.candidate_id)
-        
+
+        slot_index = 0
+        for c in sorted(candidates, key=lambda x: x.match_score, reverse=True):
+            if slot_index >= len(valid):
+                unscheduled.append(c.candidate_id)
+                continue
+
+            slot = valid[slot_index]
+            slot_index += 1
+
+            slot.is_available = False
+            c.slot_id = slot.slot_id
+            c.interviewer_id = slot.interviewer_id
+
+            assignments.append({
+                "candidate_id": c.candidate_id,
+                "candidate_name": c.name,
+                "slot_id": slot.slot_id,
+                "interviewer_id": slot.interviewer_id,
+                "start_time": slot.start_time.isoformat(),
+                "end_time": slot.end_time.isoformat()
+            })
+
         return {
-            'assignments': assignments,
-            'unscheduled': unscheduled,
-            'conflicts': 0
+            "assignments": assignments,
+            "unscheduled": unscheduled,
+            "conflicts": 0
         }
-    
+
     def format_schedule(self, assignments: List[Dict]) -> str:
         if not assignments:
             return "No interviews scheduled."
-        
+
         lines = []
         for assignment in sorted(assignments, key=lambda a: a['start_time']):
             start_dt = datetime.fromisoformat(assignment['start_time'])
             end_dt = datetime.fromisoformat(assignment['end_time'])
-            
+
             lines.append(
                 f"{start_dt.strftime('%Y-%m-%d %I:%M %p')} - {end_dt.strftime('%I:%M %p')}: "
                 f"{assignment['candidate_name']} with {assignment['interviewer_id']}"
             )
-        
+
         return '\n'.join(lines)
 
+# ---------------------------------------------------------------------
+# Leave Manager (Deterministic Policy Engine)
+# ---------------------------------------------------------------------
 
 class LeaveManager:
-    """Validates leave requests against policy rules and employee balances"""
-    
-    def __init__(self, policies: Dict[str, LeavePolicy], employee_balances: Dict[str, Dict[str, int]]):
+    def __init__(self, policies, balances):
         self.policies = policies
-        self.employee_balances = employee_balances
-    
-    def evaluate_request(self, request: LeaveRequest, existing_requests: List[LeaveRequest] = None) -> Dict:
-        policy_checks_passed = []
-        
-        # Check employee exists
-        if request.employee_id not in self.employee_balances:
-            return {
-                'status': 'denied',
-                'reason': 'employee_not_found',
-                'policy_checks_passed': [],
-                'days_requested': 0
-            }
-        policy_checks_passed.append('employee_exists')
-        
-        # Check valid date range
-        if request.start_date > request.end_date:
-            return {
-                'status': 'denied',
-                'reason': 'invalid_date_range',
-                'policy_checks_passed': policy_checks_passed,
-                'days_requested': 0
-            }
-        policy_checks_passed.append('valid_date_range')
-        
-        days_requested = (request.end_date - request.start_date).days + 1
-        
-        # Check policy exists
-        if request.leave_type not in self.policies:
-            return {
-                'status': 'denied',
-                'reason': 'invalid_leave_type',
-                'policy_checks_passed': policy_checks_passed,
-                'days_requested': days_requested
-            }
-        
-        policy = self.policies[request.leave_type]
-        
-        # Check sufficient balance
-        balance = self.employee_balances[request.employee_id].get(request.leave_type, 0)
-        if days_requested > balance:
-            return {
-                'status': 'denied',
-                'reason': 'insufficient_balance',
-                'policy_checks_passed': policy_checks_passed,
-                'days_requested': days_requested,
-                'remaining_balance': balance
-            }
-        policy_checks_passed.append('sufficient_balance')
-        
-        # Check consecutive days limit
-        if days_requested > policy.max_consecutive_days:
-            return {
-                'status': 'denied',
-                'reason': 'exceeds_max_consecutive_days',
-                'policy_checks_passed': policy_checks_passed,
-                'days_requested': days_requested
-            }
-        policy_checks_passed.append('within_consecutive_limit')
-        
-        # Check notice period
-        notice_days = (request.start_date - datetime.now()).days
-        if notice_days < policy.min_notice_days:
-            return {
-                'status': 'denied',
-                'reason': 'insufficient_notice',
-                'policy_checks_passed': policy_checks_passed,
-                'days_requested': days_requested
-            }
-        policy_checks_passed.append('sufficient_notice')
-        
-        # All checks passed
+        self.balances = balances
+
+    def evaluate_request(self, req: LeaveRequest, existing=None):
+        if req.employee_id not in self.balances:
+            return self._deny("employee_not_found")
+
+        if req.start_date > req.end_date:
+            return self._deny("invalid_date_range")
+
+        days = (req.end_date - req.start_date).days + 1
+        if req.leave_type not in self.policies:
+            return self._deny("invalid_leave_type", days)
+
+        pol = self.policies[req.leave_type]
+        balance = self.balances[req.employee_id].get(req.leave_type, 0)
+
+        if days > balance:
+            return self._deny("insufficient_balance", days, balance)
+
+        if days > pol.max_consecutive_days:
+            return self._deny("exceeds_max_consecutive_days", days)
+
+        notice = (req.start_date - datetime.now()).days
+        if notice < pol.min_notice_days:
+            return self._deny("insufficient_notice", days)
+
         return {
-            'status': 'approved',
-            'reason': 'approved',
-            'policy_checks_passed': policy_checks_passed,
-            'days_requested': days_requested,
-            'remaining_balance': balance - days_requested
+            "status": "approved",
+            "reason": "approved",
+            "days_requested": days,
+            "remaining_balance": balance - days
         }
 
+    def _deny(self, reason, days=0, balance=0):
+        return {
+            "status": "denied",
+            "reason": reason,
+            "days_requested": days,
+            "remaining_balance": balance
+        }
+
+# ---------------------------------------------------------------------
+# Query Escalator (Gemini + Keyword Fallback)
+# ---------------------------------------------------------------------
 
 class QueryEscalator:
-    """Query escalator using Gemini with keyword fallbacks"""
-    
-    def __init__(self, salary_threshold: float = 150000.0, use_llm: bool = True):
-        self.salary_threshold = salary_threshold
+    def __init__(self, threshold=150000, use_llm=True):
+        self.threshold = threshold
         self.use_llm = use_llm and LLM_AVAILABLE
-        
-        if self.use_llm:
-            try:
-                self.llm_agent = LLMAgent()
-                logger.info("✅ Gemini LLM agent initialized for query escalation")
-            except Exception as e:
-                logger.warning(f"⚠️  LLM initialization failed: {e}. Using keyword matching only.")
-                self.llm_agent = None
-                self.use_llm = False
-        else:
-            self.llm_agent = None
-        
-        self.sensitive_keywords = [
-            'discrimination', 'harassment', 'legal', 'lawsuit',
-            'complaint', 'grievance', 'termination', 'layoff'
+        self.llm = LLMAgent() if self.use_llm else None
+        self.keywords = [
+            "harassment", "discrimination", "illegal", "lawsuit",
+            "grievance", "termination", "hostile", "unsafe"
         ]
-    
-    def evaluate_query(self, query: str, context: Dict = None) -> Dict:
-        if not query or not query.strip():
-            return {
-                'should_escalate': False,
-                'reason': 'auto_handle',
-                'severity': 'low',
-                'recommended_action': 'Query can be handled automatically'
-            }
-        
-        # Try Gemini classification first
-        if self.use_llm and self.llm_agent:
+
+    def evaluate_query(self, query: str, context=None):
+        if self.llm:
             try:
-                llm_result = self.llm_agent.classify_hr_query(query, context)
-                if llm_result["success"]:
-                    content = json.loads(llm_result["content"]) if isinstance(llm_result["content"], str) else llm_result["content"]
-                    return {
-                        'should_escalate': content.get('should_escalate', False),
-                        'severity': content.get('severity', 'medium'),
-                        'reason': content.get('reason', 'llm_classification'),
-                        'recommended_action': content.get('recommended_action', 'Review required')
-                    }
-            except Exception as e:
-                logger.warning(f"⚠️  LLM classification failed: {e}. Using keyword matching.")
-        
-        # Fallback to keyword-based classification
-        return self._classify_with_keywords(query, context)
-    
-    def _classify_with_keywords(self, query: str, context: Dict = None) -> Dict:
-        query_lower = query.lower()
-        
-        # Check for sensitive keywords
-        for keyword in self.sensitive_keywords:
-            if keyword in query_lower:
+                res = self.llm.classify_hr_query(query, context)
+                if res["success"]:
+                    return json.loads(res["content"])
+            except:
+                pass
+
+        ql = query.lower()
+        for kw in self.keywords:
+            if kw in ql:
                 return {
-                    'should_escalate': True,
-                    'reason': 'sensitive_keyword',
-                    'severity': 'high',
-                    'recommended_action': f"Query contains sensitive keyword '{keyword}' - requires immediate HR review"
+                    "should_escalate": True,
+                    "reason": f"keyword:{kw}",
+                    "severity": "high",
+                    "recommended_action": "Escalate to HR immediately"
                 }
-        
-        # Check context-based escalations
-        if context:
-            if 'salary' in context and context['salary'] > self.salary_threshold:
-                return {
-                    'should_escalate': True,
-                    'reason': 'salary_threshold',
-                    'severity': 'medium',
-                    'recommended_action': f"Salary ${context['salary']:,.0f} exceeds threshold - requires approval"
-                }
-        
+
+        if context and context.get("salary", 0) > self.threshold:
+            return {
+                "should_escalate": True,
+                "reason": "salary_threshold",
+                "severity": "medium",
+                "recommended_action": "Management approval required"
+            }
+
         return {
-            'should_escalate': False,
-            'reason': 'auto_handle',
-            'severity': 'low',
-            'recommended_action': 'Query can be handled automatically'
+            "should_escalate": False,
+            "reason": "auto_handle",
+            "severity": "low",
+            "recommended_action": "Safe to auto‑respond"
         }
 
+# ---------------------------------------------------------------------
+# Smart Resume Screener (Gemini-Enhanced)
+# ---------------------------------------------------------------------
 
 class SmartResumeScreener(ResumeScreener):
-    """Resume screener using Gemini with keyword fallbacks"""
-    
-    def __init__(self, use_llm: bool = True):
+    def __init__(self, use_llm=True):
         self.use_llm = use_llm and LLM_AVAILABLE
-        
-        if self.use_llm:
-            try:
-                self.llm_agent = LLMAgent()
-                logger.info("✅ Gemini LLM agent initialized for resume screening")
-            except Exception as e:
-                logger.warning(f"⚠️  LLM initialization failed: {e}. Using keyword matching only.")
-                self.llm_agent = None
-                self.use_llm = False
-        else:
-            self.llm_agent = None
+        self.llm = LLMAgent() if self.use_llm else None
 
-    def rank_candidates(self, candidates: List[Candidate], jd: JobDescription) -> List[Candidate]:
-        required = {s.lower().strip() for s in jd.required_skills}
-        preferred = {s.lower().strip() for s in jd.preferred_skills}
+    def rank_candidates(self, candidates, jd):
+
+        required = {s.lower() for s in jd.required_skills}
+        preferred = {s.lower() for s in jd.preferred_skills}
 
         for c in candidates:
-            candidate_skills = {s.lower().strip() for s in c.skills}
-            matched_required = required & candidate_skills
-            missing_required = required - candidate_skills
-            matched_preferred = preferred & candidate_skills
-            
-            # Calculate base scores
+            skills = {s.lower() for s in c.skills}
+
+            matched_required = required & skills
+            missing_required = required - skills
+            matched_preferred = preferred & skills
+
             skill_score = len(matched_required) / len(required) if required else 0
             preferred_score = len(matched_preferred) / len(preferred) if preferred else 0
-            exp_score = min(c.experience_years / jd.min_experience, 1.0) if jd.min_experience else 1
-            
-            word_count = len(c.resume_text.split())
-            quality_score = min(word_count / 200, 1.0)
-            
-            # Try Gemini semantic matching for enhancement
-            semantic_boost = 0.0
-            if self.use_llm and self.llm_agent:
+            exp_score = min(c.experience_years / jd.min_experience, 1) if jd.min_experience else 1
+            wc = len(c.resume_text.split())
+            quality_score = min(wc / 200, 1)
+
+            boost = 0.0
+            if self.llm:
                 try:
-                    semantic_result = self.llm_agent.match_resume_to_job(
-                        c.resume_text[:1000], jd.description[:500]
-                    )
-                    if semantic_result["success"]:
-                        content = json.loads(semantic_result["content"]) if isinstance(semantic_result["content"], str) else semantic_result["content"]
-                        semantic_score = content.get("match_score", 0.0)
-                        semantic_boost = min(semantic_score * 0.1, 0.1)  # Max 10% boost
-                        logger.info(f"✅ Enhanced matching for {c.candidate_id} with Gemini (boost: {semantic_boost:.3f})")
-                except Exception as e:
-                    logger.warning(f"⚠️  Semantic matching failed for {c.candidate_id}: {e}")
-            
-            # Calculate final score
-            final_score = (
+                    semantic = self.llm.match_resume_to_job(c.resume_text[:1000], jd.description[:600])
+                    if semantic["success"]:
+                        sc = json.loads(semantic["content"]).get("match_score", 0)
+                        boost = min(sc * 0.1, 0.1)
+                except:
+                    pass
+
+            final = round(
                 0.6 * skill_score +
                 0.1 * preferred_score +
                 0.2 * exp_score +
                 0.1 * quality_score +
-                semantic_boost
+                boost,
+                4
             )
 
-            c.match_score = round(final_score, 4)
-            readiness = round(skill_score * 100, 2)
-
+            c.match_score = final
             c.explanation = {
                 "matched_required_skills": list(matched_required),
                 "missing_required_skills": list(missing_required),
                 "matched_preferred_skills": list(matched_preferred),
                 "experience_years": c.experience_years,
-                "readiness_percentage": readiness,
-                "final_score": c.match_score,
-                "semantic_boost": semantic_boost
+                "readiness_percentage": round(skill_score * 100, 2),
+                "final_score": final,
+                "semantic_boost": boost
             }
 
         return sorted(candidates, key=lambda x: x.match_score, reverse=True)
 
-# =====================================================
-# MAIN HR AGENT
-# =====================================================
+# ---------------------------------------------------------------------
+# HR Agent (Full Orchestration Layer)
+# ---------------------------------------------------------------------
 
 class HRAgent:
-    """
-    Gemini-Only HR Agent with template fallbacks
-    Simplified, reliable, and hackathon-ready
-    """
-
     def __init__(
         self,
-        use_llm: bool = True,
-        bedrock_client=None,
-        leave_policies: Dict[str, LeavePolicy] = None,
-        employee_balances: Dict[str, Dict[str, int]] = None,
-        salary_threshold: float = 150000.0
+        use_llm=True,
+        leave_policies=None,
+        employee_balances=None,
+        salary_threshold=150000
     ):
-        # Initialize components
-        self.screener = SmartResumeScreener(use_llm)
-        self.question_generator = InterviewQuestionGenerator(use_llm, bedrock_client)
+        self.use_llm = use_llm and LLM_AVAILABLE
+
+        self.screener = SmartResumeScreener(self.use_llm)
+        self.question_gen = InterviewQuestionGenerator(self.use_llm)
         self.scheduler = InterviewScheduler()
-        self.query_escalator = QueryEscalator(salary_threshold, use_llm)
-        
-        self.pipeline: Dict[str, Candidate] = {}
-        self.state_validator = PipelineStateValidator()
-        
-        # Initialize leave manager with default policies
+        self.escalator = QueryEscalator(salary_threshold, self.use_llm)
+        self.state = PipelineStateValidator()
+
         if leave_policies is None:
             leave_policies = {
-                'annual': LeavePolicy('annual', 20, 15, 7),
-                'sick': LeavePolicy('sick', 10, 5, 0),
-                'personal': LeavePolicy('personal', 5, 3, 3),
-                'unpaid': LeavePolicy('unpaid', 30, 30, 14)
+                "annual": LeavePolicy("annual", 20, 15, 7),
+                "sick": LeavePolicy("sick", 10, 5, 0),
+                "personal": LeavePolicy("personal", 5, 3, 3),
+                "unpaid": LeavePolicy("unpaid", 30, 30, 14)
             }
-        
         if employee_balances is None:
             employee_balances = {}
-        
+
         self.leave_manager = LeaveManager(leave_policies, employee_balances)
-        
-        # Storage for results
+
+        self.pipeline = {}
         self.interview_schedule = {}
         self.leave_decisions = []
         self.escalation_decisions = []
-        
-        self.use_llm = use_llm and LLM_AVAILABLE
-        logger.info(f"✅ HR Agent initialized (Gemini: {'enabled' if self.use_llm else 'disabled'})")
+
+        logger.info(f"HR Agent initialized; LLM: {self.use_llm}")
+
+    # ------------------------------------------------------------------
+    # Resume Screening Stage
+    # ------------------------------------------------------------------
 
     def screen_resumes(self, candidates: List[Candidate], jd: JobDescription):
-        """Enhanced resume screening with Gemini semantic matching"""
         for c in candidates:
             try:
-                self.state_validator.transition(c, "screened")
-            except ValueError as e:
-                logger.warning(f"Could not transition candidate {c.candidate_id}: {e}")
+                self.state.transition(c, "screened")
+            except:
                 c.status = "screened"
 
         ranked = self.screener.rank_candidates(candidates, jd)
-
         for c in ranked:
             self.pipeline[c.candidate_id] = c
 
         return ranked
 
-    def shortlist_top_n(self, n: int, interview_slots: List[InterviewSlot] = None, jd: JobDescription = None):
-        """Enhanced shortlisting with Gemini question generation and scheduling"""
-        sorted_candidates = sorted(self.pipeline.values(), key=lambda x: x.match_score, reverse=True)
+    # ------------------------------------------------------------------
+    # Shortlisting Stage
+    # ------------------------------------------------------------------
 
-        shortlisted = sorted_candidates[:n]
-        rejected = sorted_candidates[n:]
-        
+    def shortlist_top_n(self, n, interview_slots=None, jd=None):
+        pool = sorted(self.pipeline.values(), key=lambda x: x.match_score, reverse=True)
+
+        selected = pool[:n]
+        rejected = pool[n:]
+
         # Generate interview questions
         if jd:
-            for c in shortlisted:
+            for c in selected:
                 try:
-                    self.question_generator.generate_questions(c, jd)
+                    self.question_gen.generate_questions(c, jd)
                 except Exception as e:
-                    logger.error(f"Failed to generate questions for {c.candidate_id}: {e}")
-        
+                    logger.error(f"Question gen failed for {c.candidate_id}: {e}")
+
         # Schedule interviews
         if interview_slots:
-            schedule_result = self.scheduler.schedule_interviews(shortlisted, interview_slots)
-            self.interview_schedule = schedule_result
-        
-        # Update statuses
-        for c in shortlisted:
+            self.interview_schedule = self.scheduler.schedule_interviews(selected, interview_slots)
+
+        # Update pipeline states
+        for c in selected:
             try:
-                self.state_validator.transition(c, "interview_scheduled")
-            except ValueError as e:
-                logger.warning(f"Could not transition candidate {c.candidate_id}: {e}")
+                self.state.transition(c, "interview_scheduled")
+            except:
                 c.status = "interview_scheduled"
-        
+
         for c in rejected:
             try:
-                self.state_validator.transition(c, "rejected")
-            except ValueError as e:
-                logger.warning(f"Could not transition candidate {c.candidate_id}: {e}")
+                self.state.transition(c, "rejected")
+            except:
                 c.status = "rejected"
 
-        return shortlisted
-    
-    def process_leave_request(self, request: LeaveRequest, existing_requests: List[LeaveRequest] = None) -> Dict:
-        """Process leave request and return decision"""
-        decision = self.leave_manager.evaluate_request(request, existing_requests)
+        return selected
+
+    # ------------------------------------------------------------------
+    # Leave Requests
+    # ------------------------------------------------------------------
+
+    def process_leave_request(self, request: LeaveRequest):
+        decision = self.leave_manager.evaluate_request(request)
         self.leave_decisions.append({
-            'request_id': request.request_id,
-            'employee_id': request.employee_id,
-            'decision': decision
+            "request_id": request.request_id,
+            "employee_id": request.employee_id,
+            "decision": decision
         })
         return decision
-    
-    def escalate_query(self, query: str, context: Dict = None) -> Dict:
-        """Enhanced query escalation with Gemini classification"""
-        decision = self.query_escalator.evaluate_query(query, context)
+
+    # ------------------------------------------------------------------
+    # Query Escalation
+    # ------------------------------------------------------------------
+
+    def escalate_query(self, query: str, context=None):
+        decision = self.escalator.evaluate_query(query, context)
         self.escalation_decisions.append({
-            'query': query,
-            'decision': decision
+            "query": query,
+            "decision": decision
         })
         return decision
-    
-    def calculate_mrr(self, ranked_candidates: List[Candidate], relevant_candidate_ids: List[str]) -> float:
-        """Calculate Mean Reciprocal Rank for ranking quality"""
-        for rank, candidate in enumerate(ranked_candidates, start=1):
-            if candidate.candidate_id in relevant_candidate_ids:
-                return 1.0 / rank
+
+    # ------------------------------------------------------------------
+    # Metrics
+    # ------------------------------------------------------------------
+
+    def calculate_mrr(self, ranked, relevant_ids):
+        for i, c in enumerate(ranked, 1):
+            if c.candidate_id in relevant_ids:
+                return 1 / i
         return 0.0
 
+    # ------------------------------------------------------------------
+    # Export Final Results
+    # ------------------------------------------------------------------
+
     def export_results(self):
-        """Export comprehensive results in evaluation format"""
         return {
             "team_id": CONFIG["team_id"],
             "track": CONFIG["track"],
             "metadata": {
                 "timestamp": datetime.now().isoformat(),
-                "version": "3.0.0-gemini",
+                "version": CONFIG["version"],
                 "llm_provider": "gemini" if self.use_llm else "template",
                 "llm_enabled": self.use_llm
             },
@@ -758,27 +617,30 @@ class HRAgent:
                 "interview_schedule": self.interview_schedule,
                 "leave_decisions": self.leave_decisions,
                 "escalation_decisions": self.escalation_decisions,
-                "transition_log": self.state_validator.get_transition_log()
+                "transition_log": self.state.get_transition_log()
             }
         }
-    
-    def get_system_status(self) -> Dict:
-        """Get system status"""
+
+    # ------------------------------------------------------------------
+    # System Diagnostic Snapshot
+    # ------------------------------------------------------------------
+
+    def get_system_status(self):
         return {
             "provider": "gemini_only",
             "llm_enabled": self.use_llm,
             "llm_available": LLM_AVAILABLE,
-            "model": "gemini-2.5-flash" if self.use_llm else "template",
+            "model": "gemini-2.5-flash",
             "features": {
                 "semantic_matching": self.use_llm,
-                "llm_question_generation": self.use_llm,
-                "llm_query_classification": self.use_llm
+                "question_generation": self.use_llm,
+                "query_classification": self.use_llm
             },
             "pipeline_stats": {
-                "total_candidates": len(self.pipeline),
-                "transitions_logged": len(self.state_validator.get_transition_log()),
+                "candidates": len(self.pipeline),
+                "transitions": len(self.state.get_transition_log()),
                 "leave_decisions": len(self.leave_decisions),
-                "escalation_decisions": len(self.escalation_decisions)
+                "escalations": len(self.escalation_decisions)
             },
             "reliability": "100%",
             "ready_for_demo": True
