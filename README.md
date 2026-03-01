@@ -1,5 +1,35 @@
 # AI-Native HR Agent - Track 2 Hackathon Submission
 
+## 📋 Team Information
+
+**Team Name:** Kanyaraasi
+
+**Team Members:**
+- [Team Member 1 Name]
+- [Team Member 2 Name]
+- [Team Member 3 Name]
+- [Team Member 4 Name]
+
+**College Name:** Indian Institute of Information Technology, Design and Manufacturing, Kancheepuram (IIITDM Kancheepuram)
+
+**Track:** Track 2 - AI HR Agent
+
+## 📝 Project Description
+
+This project implements a complete AI-Native HR Agent system that fulfills all Track 2 requirements with advanced AI capabilities. The system provides intelligent hiring automation across 6 core modules: Resume Screening, Interview Scheduling, Questionnaire Generation, Pipeline Management, Leave Management, and Escalation Handling.
+
+**Key Features:**
+- AI-powered candidate ranking with executive summaries and strategic insights
+- Predictive hiring recommendations (strong_hire, hire, interview, maybe) with confidence scores
+- Cross-candidate analysis identifying talent pool patterns and market trends
+- Fast performance (2-5 seconds for 100 candidates) with LLM fallback for reliability
+- Production-ready architecture with comprehensive error handling and validation
+- Interactive Streamlit dashboard with all 6 modules accessible via tabs
+
+**Technology Stack:** Python, Streamlit, Google Gemini 2.5 Flash, Pandas
+
+---
+
 ## 🚀 Quick Start
 
 ```bash
