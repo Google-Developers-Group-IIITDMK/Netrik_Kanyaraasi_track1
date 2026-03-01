@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Native HR Agent - System Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 40px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .architecture {
+            margin: 40px 0;
+        }
+        
+        .layer {
+            margin: 30px 0;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 5px solid;
+        }
+        
+        .layer-presentation {
+            background: #e3f2fd;
+            border-color: #2196F3;
+        }
+        
+        .layer-application {
+            background: #f3e5f5;
+            border-color: #9c27b0;
+        }
+        
+        .layer-business {
+            background: #fff3e0;
+            border-color: #ff9800;
+        }
+        
+        .layer-data {
+            background: #e8f5e9;
+            border-color: #4caf50;
+        }
+        
+        .layer-external {
+            background: #fce4ec;
+            border-color: #e91e63;
+        }
+        
+        .layer h2 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .layer h2 span {
+            margin-right: 10px;
+            font-size: 28px;
+        }
+        
+        .components {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .component {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .component h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .component p {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .component ul {
+            margin-top: 8px;
+            padding-left: 20px;
+        }
+        
+        .component li {
+            font-size: 12px;
+            color: #555;
+            margin: 4px 0;
+        }
+        
+        .flow {
+            margin: 40px 0;
+            padding: 30px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        
+        .flow h2 {
+            font-size: 24px;
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .flow-step {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .flow-step .number {
+            background: #667eea;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .flow-step .content {
+            flex: 1;
+        }
+        
+        .flow-step h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .flow-step p {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .modules {
+            margin: 40px 0;
+        }
+        
+        .modules h2 {
+            font-size: 24px;
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .module {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-top: 4px solid #667eea;
+        }
+        
+        .module h3 {
+            font-size: 18px;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .module p {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .module ul {
+            padding-left: 20px;
+        }
+        
+        .module li {
+            font-size: 13px;
+            color: #555;
+            margin: 5px 0;
+        }
+        
+        .tech-stack {
+            margin: 40px 0;
+            padding: 30px;
+            background: #f0f4ff;
+            border-radius: 8px;
+        }
+        
+        .tech-stack h2 {
+            font-size: 24px;
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .tech-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .tech-item h4 {
+            font-size: 14px;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+        
+        .tech-item p {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI-Native HR Agent</h1>
+            <p><strong>System Architecture & Design</strong></p>
+            <p>Team Kanyaraasi | Track 2 - AI HR Agent | AWS Hackathon 2026</p>
+        </div>
+
+        <div class="architecture">
+            <!-- Presentation Layer -->
+            <div class="layer layer-presentation">
+                <h2><span>🖥️</span> Presentation Layer</h2>
+                <div class="components">
+                    <div class="component">
+                        <h3>Streamlit UI (app_ai_native.py)</h3>
+                        <p>Interactive web interface with 6 functional tabs</p>
+                        <ul>
+                            <li>Resume Screening Dashboard</li>
+                            <li>Interview Scheduling Interface</li>
+                            <li>Questionnaire Generator</li>
+                            <li>Pipeline Management View</li>
+                            <li>Leave Management Portal</li>
+                            <li>Escalation Handler</li>
+                        </ul>
+                    </div>
+                    <div class="component">
+                        <h3>AI Insights Display</h3>
+                        <p>Executive summary and strategic insights visualization</p>
+                        <ul>
+                            <li>Executive Summary Cards</li>
+                            <li>Cross-Candidate Insights</li>
+                            <li>Predictive Recommendations</li>
+                            <li>Confidence Scoring</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Application Layer -->
+            <div class="layer layer-application">
+                <h2><span>⚙️</span> Application Layer</h2>
+                <div class="components">
+                    <div class="component">
+                        <h3>AI-Native Agent (hr_agent_ai_native.py)</h3>
+                        <p>Enhanced agent with AI-powered features</p>
+                        <ul>
+                            <li>Executive Summary Generation</li>
+                            <li>Strategic Insights Engine</li>
+                            <li>Predictive Recommendations</li>
+                            <li>Percentile Rankings</li>
+                        </ul>
+                    </div>
+                    <div class="component">
+                        <h3>Base HR Agent (hr_agent_upgraded.py)</h3>
+                        <p>Core agent with 6 functional modules</p>
+                        <ul>
+                            <li>Resume Screener</li>
+                            <li>Interview Scheduler</li>
+                            <li>Question Generator</li>
+                            <li>Pipeline Validator</li>
+                            <li>Leave Manager</li>
+                            <li>Query Escalator</li>
+                        </ul>
+                    </div>
+                    <div class="component">
+                        <h3>LLM Manager (gemini_llm_manager_upgraded.py)</h3>
+                        <p>AI integration with fallback mechanisms</p>
+                        <ul>
+                            <li>Gemini 2.5 Flash Integration</li>
+                            <li>Template Fallback System</li>
+                            <li>Prompt Engineering</li>
+                            <li>Response Parsing</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Business Logic Layer -->
+            <div class="layer layer-business">
+                <h2><span>🧠</span> Business Logic Layer</h2>
+                <div class="components">
+                    <div class="component">
+                        <h3>Ranking Engine</h3>
+                        <p>Deterministic candidate scoring</p>
+                        <ul>
+                            <li>Skills Match (60%)</li>
+                            <li>Experience Weight (20%)</li>
+                            <li>Preferred Skills (10%)</li>
+                            <li>Resume Quality (10%)</li>
+                            <li>Optional LLM Boost (15%)</li>
+                        </ul>
+                    </div>
+                    <div class="component">
+                        <h3>Scheduling Logic</h3>
+                        <p>Constraint-safe slot allocation</p>
+                        <ul>
+                            <li>Slot Validation</li>
+                            <li>Conflict Detection</li>
+                            <li>Deterministic Assignment</li>
+                            <li>Pipeline State Update</li>
+                        </ul>
+                    </div>
+                    <div class="component">
+                        <h3>State Machine</h3>
+                        <p>Pipeline state management</p>
+                        <ul>
+                            <li>Transition Validation</li>
+                            <li>Terminal State Handling</li>
+                            <li>Audit Trail Logging</li>
+                            <li>Status Tracking</li>
+                        </ul>
+                    </div>
+                    <div class="component">
+                        <h3>Policy Enforcement</h3>
+                        <p>Leave management rules</p>
+                        <ul>
+                            <li>Balance Validation</li>
+                            <li>Quota Enforcement</li>
+                            <li>Notice Period Check</li>
+                            <li>Consecutive Days Limit</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Layer -->
+            <div class="layer layer-data">
+                <h2><span>💾</span> Data Layer</h2>
+                <div class="components">
+                    <div class="component">
+                        <h3>Data Loader (data_loader.py)</h3>
+                        <p>Data ingestion and transformation</p>
+                        <ul>
+                            <li>CSV Parsing</li>
+                            <li>Candidate Object Creation</li>
+                            <li>Job Description Builder</li>
+                            <li>Skill Extraction</li>
+                        </ul>
+                    </div>
+                    <div class="component">
+                        <h3>Data Sources</h3>
+                        <p>Input datasets</p>
+                        <ul>
+                            <li>resume_dataset_1200.csv</li>
+                            <li>employee leave tracking data.xlsx</li>
+                            <li>Interview Slots (generated)</li>
+                            <li>Leave Policies (configured)</li>
+                        </ul>
+                    </div>
+                    <div class="component">
+                        <h3>Export Interface</h3>
+                        <p>Standardized JSON output</p>
+                        <ul>
+                            <li>Pipeline Data</li>
+                            <li>Interview Schedule</li>
+                            <li>Leave Decisions</li>
+                            <li>Escalation Log</li>
+                            <li>Transition History</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- External Services -->
+            <div class="layer layer-external">
+                <h2><span>🌐</span> External Services</h2>
+                <div class="components">
+                    <div class="component">
+                        <h3>Gemini 2.5 Flash API</h3>
+                        <p>Google's LLM for semantic understanding</p>
+                        <ul>
+                            <li>Resume-Job Matching</li>
+                            <li>Question Generation</li>
+                            <li>Insight Synthesis</li>
+                            <li>Recommendation Logic</li>
+                        </ul>
+                    </div>
+                    <div class="component">
+                        <h3>Fallback System</h3>
+                        <p>Template-based generation</p>
+                        <ul>
+                            <li>Rule-based Matching</li>
+                            <li>Deterministic Logic</li>
+                            <li>Fast Mode (2-5s)</li>
+                            <li>100% Reliability</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Flow -->
+        <div class="flow">
+            <h2>📊 Data Flow</h2>
+            <div class="flow-step">
+                <div class="number">1</div>
+                <div class="content">
+                    <h3>User Input</h3>
+                    <p>User clicks "Run AI Analysis" → Streamlit UI captures configuration (LLM enabled, fast mode)</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="number">2</div>
+                <div class="content">
+                    <h3>Data Loading</h3>
+                    <p>Data Loader reads CSV files → Creates 1200 Candidate objects → Builds Job Description</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="number">3</div>
+                <div class="content">
+                    <h3>Agent Initialization</h3>
+                    <p>AI-Native Agent initialized → Leave balances created for all employees → LLM Manager configured</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="number">4</div>
+                <div class="content">
+                    <h3>Resume Screening</h3>
+                    <p>Ranking Engine scores candidates → Optional LLM semantic boost → Sorted by match score</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="number">5</div>
+                <div class="content">
+                    <h3>AI Insights Generation</h3>
+                    <p>Executive Summary created → Cross-candidate patterns identified → Predictive recommendations generated</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="number">6</div>
+                <div class="content">
+                    <h3>Results Display</h3>
+                    <p>UI renders insights → Top candidates shown → All 6 modules accessible via tabs</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="number">7</div>
+                <div class="content">
+                    <h3>Export</h3>
+                    <p>User downloads JSON → Standardized format → All data included (pipeline, schedule, leave, escalations)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6 Core Modules -->
+        <div class="modules">
+            <h2>🎯 Six Core Modules</h2>
+            <div class="module-grid">
+                <div class="module">
+                    <h3>1. Resume Screening</h3>
+                    <p><strong>Purpose:</strong> Rank candidates by match score</p>
+                    <ul>
+                        <li>Deterministic scoring (60-10-20-10)</li>
+                        <li>Explainable ranking</li>
+                        <li>Reasoning chains</li>
+                        <li>Fast mode: 2-5s for 1200 candidates</li>
+                    </ul>
+                </div>
+                <div class="module">
+                    <h3>2. Interview Scheduling</h3>
+                    <p><strong>Purpose:</strong> Assign interview slots</p>
+                    <ul>
+                        <li>Constraint-safe allocation</li>
+                        <li>Zero conflicts guaranteed</li>
+                        <li>Slot validation</li>
+                        <li>Pipeline state update</li>
+                    </ul>
+                </div>
+                <div class="module">
+                    <h3>3. Questionnaire Generation</h3>
+                    <p><strong>Purpose:</strong> Create personalized questions</p>
+                    <ul>
+                        <li>Technical questions</li>
+                        <li>Behavioral (STAR format)</li>
+                        <li>Situational scenarios</li>
+                        <li>Role-specific focus</li>
+                    </ul>
+                </div>
+                <div class="module">
+                    <h3>4. Pipeline Management</h3>
+                    <p><strong>Purpose:</strong> Track candidate status</p>
+                    <ul>
+                        <li>State machine validation</li>
+                        <li>Transition logging</li>
+                        <li>Terminal state handling</li>
+                        <li>Complete audit trail</li>
+                    </ul>
+                </div>
+                <div class="module">
+                    <h3>5. Leave Management</h3>
+                    <p><strong>Purpose:</strong> Process leave requests</p>
+                    <ul>
+                        <li>Policy enforcement</li>
+                        <li>Balance tracking</li>
+                        <li>No underflow</li>
+                        <li>Clear denial reasons</li>
+                    </ul>
+                </div>
+                <div class="module">
+                    <h3>6. Escalation Handling</h3>
+                    <p><strong>Purpose:</strong> Categorize query priority</p>
+                    <ul>
+                        <li>Keyword-based classification</li>
+                        <li>High/Medium/Low priority</li>
+                        <li>Reasoning provided</li>
+                        <li>Recommended actions</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Technology Stack -->
+        <div class="tech-stack">
+            <h2>🛠️ Technology Stack</h2>
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <h4>Frontend</h4>
+                    <p>Streamlit 1.28+</p>
+                </div>
+                <div class="tech-item">
+                    <h4>Backend</h4>
+                    <p>Python 3.x</p>
+                </div>
+                <div class="tech-item">
+                    <h4>LLM</h4>
+                    <p>Gemini 2.5 Flash</p>
+                </div>
+                <div class="tech-item">
+                    <h4>Data Processing</h4>
+                    <p>Pandas 2.0+</p>
+                </div>
+                <div class="tech-item">
+                    <h4>API Client</h4>
+                    <p>google-generativeai</p>
+                </div>
+                <div class="tech-item">
+                    <h4>Configuration</h4>
+                    <p>python-dotenv</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>AI-Native HR Agent</strong> | Team Kanyaraasi | AWS Hackathon 2026</p>
+            <p>Architecture designed for scalability, modularity, and production readiness</p>
+        </div>
+    </div>
+</body>
+</html>
